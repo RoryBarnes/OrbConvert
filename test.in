@@ -1,0 +1,12 @@
+sInputCoord	Keplerian
+sInputOrigin	Heliocentric
+sOutputCoord	Cartesian
+sOutputOrigin	Heliocentric
+
+dMass	1e-10
+dSemi	1.1
+dEcc	0.1
+dIncl	0.2
+dLasc	110
+dArgPeri	300
+dMeanAnom 30
