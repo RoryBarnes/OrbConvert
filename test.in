@@ -1,12 +1,15 @@
-sInputCoord	Keplerian
+sInputCoord	Cometary
 sInputOrigin	Heliocentric
 sOutputCoord	Cartesian
 sOutputOrigin	Heliocentric
 
 dMass	1e-10
 dSemi	1.1
-dEcc	0.1
+#dEcc	0.1
 dIncl	0.2
 dLasc	110
 dArgPeri	300
-dMeanAnom 30
+#dMeanAnom 30
+dPeriDist 1
+dTPeri	2450030
+dEpoch	2450300

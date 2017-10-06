@@ -541,15 +541,14 @@ void ReadOptions(BODY *body,OPTIONS *options,char infile[]) {
   ReadOutputOrigin(cFile,options);
 
   ReadMass(cFile,body,options);
-  ReadKeplerElems(cFile,body,options);
-  //ReadCometElems(cFile,body,options);
+  if (options->iInputCoord == KEPLERIAN)
+    ReadKeplerElems(cFile,body,options);
+  else if (options->iInputCoord == COMETARY) 
+    ReadCometElems(cFile,body,options);
   //ReadCartes(cFile,body,options);
 }
 
 /**************** Orbit Conversion Subroutines **********/
-
-void ConvertCometToKepler(BODY *body) {
-}
 
 void MassFunctions(double *mass,double *ms,double *mu) {
   int j;
@@ -652,6 +651,78 @@ void cartes(BODY *body,double mu) {
 
 }
 
+/* Compute orbital elements from Cartesian coordinates */
+void elems(BODY *body,double mu) {
+   double hx,hy,hz,hsq,hxy,h,r,vsq,rdot;
+   double sin_lasc,cos_lasc,sin_aperf,cos_aperf,sinf,cosf;
+   double a,e,sin_ecc,cos_ecc,arg;
+   int i;
+/* 
+ * Compute various intermediate quantities.
+ */
+   hx= (double)(body->x[1]*body->v[2] - body->x[2]*body->v[1]);
+   hy= (double)(body->x[2]*body->v[0] - body->x[0]*body->v[2]);
+   hz= (double)(body->x[0]*body->v[1] - body->x[1]*body->v[0]);
+   hsq= hx*hx+hy*hy+hz*hz;
+   h= sqrt(hsq);
+   hxy= sqrt(hx*hx+hy*hy);
+   r= sqrt((double)dot(body->x,body->x));
+   vsq= (double)dot(body->v,body->v);
+   rdot= (double)dot(body->x,body->v);
+   a= 1/(2/r-vsq/mu);
+   e= sqrt(1-hsq/(mu*a));
+
+   sin_lasc= hx/hxy;
+   cos_lasc= -hy/hxy;
+   sin_aperf= body->x[2]*h/(hxy*r);
+   cos_aperf= (body->x[0]*cos_lasc+body->x[1]*sin_lasc)/r;
+   cosf= (hsq/(mu*r)-1)/e;
+   if(fabs(cosf)>1) {
+     if(cosf>0) 
+       cosf= 1;
+     else
+       cosf= -1; 
+   }
+   sinf= sqrt(1-cosf*cosf);
+   if(rdot<0)  
+     sinf= -sinf;
+   cos_ecc= (1-r/a)/e;
+   if (fabs(cos_ecc)>1) {
+      if(cos_ecc>0)
+        cos_ecc= 1;
+      else
+        cos_ecc= -1;
+   }
+   sin_ecc = sqrt(1-cos_ecc*cos_ecc);
+   if (rdot<0) 
+     sin_ecc = -sin_ecc;
+
+   body->dSemi=a;
+   body->dEcc=e;
+   body->dIncl=atan2(hxy/h,hz/h);
+   body->dLasc= atan2(sin_lasc,cos_lasc);
+   arg= atan2(sin_aperf,cos_aperf)-atan2(sinf,cosf);
+   while(arg>M_PI) 
+     arg-= 2*M_PI;
+   while(arg<-M_PI) 
+     arg+= 2*M_PI;
+   body->dArgPeri = arg;
+   body->dMeanAnom = atan2(sin_ecc,cos_ecc)-e*sin_ecc;
+}
+
+double dSemiToPeriod(double a,double ms) {
+  return pow(4*PI*PI*a*a*a/(BIGG*ms),0.5);
+}
+
+void ConvertCometToKepler(BODY *body,double dMass) {
+  double dPeriod;
+
+  dPeriod = dSemiToPeriod(body->dSemi,dMass);
+
+  body->dEcc = 1 - body->dPeriDist/body->dSemi;
+  body->dMeanAnom = 2*PI/dPeriod*body->dEpoch - body->dTPeri;
+}
+
 void WriteOutput(BODY *body,OPTIONS *options) {
   if (options->iOutputCoord == CARTESIAN) {
     printf("Position = (%.3e,%.3e,%.3e)\n",body->x[0],body->x[1],body->x[2]);
@@ -660,6 +731,7 @@ void WriteOutput(BODY *body,OPTIONS *options) {
     printf("Velocity = %.3e\n",sqrt(dot(body->v,body->v)));
   }
 }
+
 int main(int argc, char *argv[]) {
   BODY body;
   OPTIONS options;
@@ -689,6 +761,9 @@ int main(int argc, char *argv[]) {
   mass[0]=MSUN;
 
   MassFunctions(mass,ms,mu);
+
+  if (options.iInputCoord == COMETARY)
+    ConvertCometToKepler(&body,(body.dMass+mass[0]));
 
   /* Convert to Cartesian astrocentric coordinates */
   cartes(&body,mu[1]);
