@@ -563,6 +563,86 @@ void MassFunctions(double *mass,double *ms,double *mu) {
   }     
 }
 
+/* Astrocentric -> Barycentric Cartesian coordinates */
+void hel_bar(double **hel,double **bar,double *m,double *ms,int P)
+{
+   int i,p;
+
+   for(i= 0;i<3;i++)
+      bar[0][i] = 0;
+   for(p= 1;p<=P;p++)
+      for(i=0;i<3;i++)
+         bar[0][i] -= m[p]/ms[P]*hel[p][i];
+   for(p= 1;p<=P;p++)
+      for(i=0;i<3;i++)
+         bar[p][i] = hel[p][i] + bar[0][i];
+}
+
+/* Barycentric -> Astrocentric Cartesian coordinates */
+void bar_hel(double **bar,double **hel,int P)
+{
+   int i,p;
+
+   for (p=1;p<=P;p++)
+      for (i=0;i<3;i++) hel[p][i] = bar[p][i] - bar[0][i];
+   for (i=0;i<3;i++) hel[0][i] = 0;
+
+}
+
+/* Calculate the total angular momentum vector */
+double* invariable_plane(double **x,double **v,int P,double *m) {
+  int p,i;
+  double *dh,*h;
+  double mg;
+
+  dh=malloc(3*sizeof(double));
+  h=malloc(3*sizeof(double));
+
+  cross(h,x[0],v[0]);
+  for (i=0;i<3;i++)
+    h[i] *= m[0];   
+  for(p=1;p<=P;p++) {
+    cross(dh,x[p],v[p]);
+    for(i=0;i<3;i++)
+      h[i]+= m[p]*dh[i];
+  }
+  mg= pow(dot(h,h),0.5);
+  for(i=0;i<3;i++) 
+    h[i]/= mg;
+  return h;
+}
+
+/* Rotate coordinates */
+void rotate(double *z,double **x,int np)  {
+    double phi, theta;
+    int i,k;
+    double **x1;
+    
+    x1=malloc((np+1)*sizeof(double*));
+    for (i=0;i<=np;i++)
+        x1[i]=malloc(3*sizeof(double));
+
+    theta = atan2(z[1],z[0]);
+    phi = atan2(sqrt(z[0]*z[0] + z[1]*z[1]),z[2]);
+
+    /* Rotate about z-axis */
+    for (i=0;i<=np;i++) {
+      x1[i][0] = x[i][0]*cos(theta) + x[i][1]*sin(theta);
+      x1[i][1] = -x[i][0]*sin(theta) + x[i][1]*cos(theta);
+      x1[i][2] = x[i][2];
+    }
+    
+    /* Rotate about new y-axis (z -> x, x -> y) */
+    for (i=0;i<=np;i++) {
+      x[i][0] = -x1[i][2]*sin(phi) + x1[i][0]*cos(phi);
+      x[i][1] = x1[i][1];
+      x[i][2] = x1[i][2]*cos(phi) + x1[i][0]*sin(phi);
+    }
+
+    free(x1);
+}
+
+
 double GetEccAnom(double m,double e) {
   double es,ec,w,wp,wpp,wppp,ecc,dx,lo,up,next;
   int iter;
